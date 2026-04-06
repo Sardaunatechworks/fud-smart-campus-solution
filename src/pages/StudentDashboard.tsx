@@ -5,20 +5,30 @@ import { useAuth } from '../AuthContext';
 import { Link } from 'react-router-dom';
 import { Item } from '../types';
 
+import { supabase } from '../lib/supabase';
+
 const StudentDashboard = () => {
   const { user } = useAuth();
   const [recentItems, setRecentItems] = useState<Item[]>([]);
   const [stats, setStats] = useState({ lost: 0, found: 0 });
 
   useEffect(() => {
-    fetch('/api/items?status=approved')
-      .then(res => res.json())
-      .then(data => {
-        setRecentItems(data.slice(0, 4));
-        const lost = data.filter((i: Item) => i.type === 'lost').length;
-        const found = data.filter((i: Item) => i.type === 'found').length;
+    const fetchDashboardData = async () => {
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setRecentItems(data.slice(0, 4) as any);
+        const lost = data.filter((i: any) => i.type === 'lost').length;
+        const found = data.filter((i: any) => i.type === 'found').length;
         setStats({ lost, found });
-      });
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   return (

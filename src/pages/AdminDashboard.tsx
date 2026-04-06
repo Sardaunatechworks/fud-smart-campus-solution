@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { Users, FileText, Clock, AlertCircle, TrendingUp, ArrowUpRight, CheckCircle2, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import { supabase } from '../lib/supabase';
+
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -12,9 +14,36 @@ const AdminDashboard = () => {
   });
 
   useEffect(() => {
-    fetch('/api/admin/stats')
-      .then(res => res.json())
-      .then(data => setStats(data));
+    const fetchStats = async () => {
+      const { count: userCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'student');
+
+      const { count: lostCount } = await supabase
+        .from('items')
+        .select('*', { count: 'exact', head: true })
+        .eq('type', 'lost');
+
+      const { count: foundCount } = await supabase
+        .from('items')
+        .select('*', { count: 'exact', head: true })
+        .eq('type', 'found');
+
+      const { count: pendingCount } = await supabase
+        .from('items')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      setStats({
+        totalUsers: userCount || 0,
+        totalLostItems: lostCount || 0,
+        totalFoundItems: foundCount || 0,
+        pendingReports: pendingCount || 0
+      });
+    };
+
+    fetchStats();
   }, []);
 
   return (

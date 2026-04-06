@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Trash2, ShieldAlert, ShieldCheck, Loader2, MoreVertical } from 'lucide-react';
+import { Search, Trash2, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
 
 const ManageUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -12,30 +13,56 @@ const ManageUsers = () => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = () => {
+  const fetchUsers = async () => {
     setIsLoading(true);
-    fetch('/api/admin/users')
-      .then(res => res.json())
-      .then(data => {
-        setUsers(data);
-        setIsLoading(false);
-      });
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'student')
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      const formattedUsers = data.map((u: any) => ({
+        id: u.id,
+        fullName: u.full_name,
+        email: u.email,
+        matricNumber: u.matric_number,
+        role: u.role,
+        status: u.status
+      }));
+      setUsers(formattedUsers);
+    }
+    setIsLoading(false);
   };
 
-  const handleStatusChange = async (id: number, currentStatus: string) => {
+  const handleStatusChange = async (id: string | number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-    await fetch(`/api/admin/users/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    fetchUsers();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: newStatus })
+      .eq('id', id);
+
+    if (error) {
+      console.error(error);
+      alert('Error updating user status');
+    } else {
+      fetchUsers();
+    }
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-      fetchUsers();
+  const handleDelete = async (id: string | number) => {
+    if (window.confirm('Are you sure you want to delete this user? This will remove their profile but not their auth account.')) {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error(error);
+        alert('Error deleting user');
+      } else {
+        fetchUsers();
+      }
     }
   };
 

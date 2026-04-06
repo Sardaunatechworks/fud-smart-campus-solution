@@ -4,6 +4,8 @@ import { Search, Filter, MapPin, Calendar, ArrowRight, Loader2 } from 'lucide-re
 import { Link } from 'react-router-dom';
 import { Item } from '../types';
 
+import { supabase } from '../lib/supabase';
+
 const BrowseItems = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,12 +16,19 @@ const BrowseItems = () => {
   const categories = ['All', 'Phone', 'ID Card', 'Laptop', 'Bag', 'Books', 'Others'];
 
   useEffect(() => {
-    fetch('/api/items?status=approved')
-      .then(res => res.json())
-      .then(data => {
-        setItems(data);
-        setIsLoading(false);
-      });
+    const fetchItems = async () => {
+      let query = supabase
+        .from('items')
+        .select('*')
+        .eq('status', 'approved');
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (data) setItems(data as any);
+      setIsLoading(false);
+    };
+
+    fetchItems();
   }, []);
 
   const filteredItems = items.filter(item => {

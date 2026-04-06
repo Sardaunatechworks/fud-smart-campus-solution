@@ -8,6 +8,8 @@ interface ReportFormProps {
   type: 'lost' | 'found';
 }
 
+import { supabase } from '../lib/supabase';
+
 const ReportItem: React.FC<ReportFormProps> = ({ type }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -29,22 +31,27 @@ const ReportItem: React.FC<ReportFormProps> = ({ type }) => {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
+      const { data, error } = await supabase
+        .from('items')
+        .insert([{
+          name: formData.name,
+          category: formData.category,
+          description: formData.description,
+          location: formData.location,
+          date: formData.date,
           type,
-          userId: user?.id
-        }),
-      });
+          image_url: formData.imageUrl,
+          user_id: user?.id,
+          status: 'pending'
+        }]);
 
-      if (res.ok) {
-        setIsSuccess(true);
-        setTimeout(() => navigate('/dashboard'), 2000);
-      }
+      if (error) throw error;
+
+      setIsSuccess(true);
+      setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {
       console.error(err);
+      alert('Error submitting report. Please try again.');
     } finally {
       setIsLoading(false);
     }

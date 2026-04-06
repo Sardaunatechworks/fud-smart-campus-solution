@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { MapPin, Calendar, Tag, User as UserIcon, Mail, MessageSquare, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
 import { Item } from '../types';
 
+import { supabase } from '../lib/supabase';
+
 const ItemDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -11,15 +13,30 @@ const ItemDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/items/${id}`)
-      .then(res => res.json())
-      .then(data => {
-        setItem(data);
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setIsLoading(false);
-      });
+    const fetchItemDetails = async () => {
+      const { data, error } = await supabase
+        .from('items')
+        .select(`
+          *,
+          profiles:user_id (
+            full_name,
+            email
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (data) {
+        setItem({
+          ...(data as any),
+          posted_by: (data as any).profiles?.full_name || 'System User',
+          contact_email: (data as any).profiles?.email || 'support@fud.edu.ng'
+        });
+      }
+      setIsLoading(false);
+    };
+
+    fetchItemDetails();
   }, [id]);
 
   if (isLoading) {

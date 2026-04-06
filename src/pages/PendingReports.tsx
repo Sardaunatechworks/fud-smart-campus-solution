@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, Loader2, Eye, Calendar, MapPin, User as UserIcon } from 'lucide-react';
 import { Item } from '../types';
 
+import { supabase } from '../lib/supabase';
+
 const PendingReports = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -12,24 +14,42 @@ const PendingReports = () => {
     fetchPending();
   }, []);
 
-  const fetchPending = () => {
+  const fetchPending = async () => {
     setIsLoading(true);
-    fetch('/api/items?status=pending')
-      .then(res => res.json())
-      .then(data => {
-        setItems(data);
-        setIsLoading(false);
-      });
+    const { data, error } = await supabase
+      .from('items')
+      .select(`
+        *,
+        profiles:user_id (
+          full_name
+        )
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      const formattedItems = data.map((item: any) => ({
+        ...item,
+        posted_by: item.profiles?.full_name || 'System User'
+      }));
+      setItems(formattedItems as any);
+    }
+    setIsLoading(false);
   };
 
-  const handleAction = async (id: number, status: 'approved' | 'rejected') => {
-    await fetch(`/api/items/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    setSelectedItem(null);
-    fetchPending();
+  const handleAction = async (id: string | number, status: 'approved' | 'rejected') => {
+    const { error } = await supabase
+      .from('items')
+      .update({ status })
+      .eq('id', id);
+
+    if (error) {
+      console.error(error);
+      alert('Error updating item status');
+    } else {
+      setSelectedItem(null);
+      fetchPending();
+    }
   };
 
   return (

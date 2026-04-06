@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User as UserIcon, Hash, Loader2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
+import { supabase } from '../lib/supabase';
 
 export const Login = () => {
   const [identifier, setIdentifier] = useState('');
@@ -19,25 +20,25 @@ export const Login = () => {
     setError('');
 
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password, role }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: identifier.includes('@') ? identifier : `${identifier}@student.fud.edu.ng`, // rudimentary check for matric number vs email
+        password: password,
       });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.role !== role) {
+
+      if (error) throw error;
+
+      if (data.user) {
+        const userRole = data.user.user_metadata.role || 'student';
+        if (userRole !== role) {
+          await supabase.auth.signOut();
           setError(`Invalid credentials for ${role} role.`);
           setIsLoading(false);
           return;
         }
-        login(data);
-        navigate(data.role === 'admin' ? '/admin' : '/dashboard');
-      } else {
-        setError(data.error);
+        navigate(userRole === 'admin' ? '/admin' : '/dashboard');
       }
-    } catch (err) {
-      setError('Something went wrong. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -156,20 +157,25 @@ export const Register = () => {
     setError('');
 
     try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            matric_number: formData.matricNumber,
+            role: 'student'
+          }
+        }
       });
-      const data = await res.json();
-      if (res.ok) {
-        login(data);
+
+      if (error) throw error;
+
+      if (data.user) {
         navigate('/dashboard');
-      } else {
-        setError(data.error);
       }
-    } catch (err) {
-      setError('Something went wrong. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }

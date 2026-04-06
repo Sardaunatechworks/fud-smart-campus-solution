@@ -4,6 +4,8 @@ import { Search, Trash2, CheckCircle2, XCircle, Loader2, ExternalLink, Filter } 
 import { Item } from '../types';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { supabase } from '../lib/supabase';
+
 const ManageItems = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,29 +22,55 @@ const ManageItems = () => {
     fetchItems();
   }, []);
 
-  const fetchItems = () => {
+  const fetchItems = async () => {
     setIsLoading(true);
-    fetch('/api/items')
-      .then(res => res.json())
-      .then(data => {
-        setItems(data);
-        setIsLoading(false);
-      });
+    const { data, error } = await supabase
+      .from('items')
+      .select(`
+        *,
+        profiles:user_id (
+          full_name
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      const formattedItems = data.map((item: any) => ({
+        ...item,
+        posted_by: item.profiles?.full_name || 'System User'
+      }));
+      setItems(formattedItems as any);
+    }
+    setIsLoading(false);
   };
 
-  const handleStatusChange = async (id: number, status: string) => {
-    await fetch(`/api/items/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    fetchItems();
-  };
+  const handleStatusChange = async (id: string | number, status: string) => {
+    const { error } = await supabase
+      .from('items')
+      .update({ status })
+      .eq('id', id);
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this item report?')) {
-      await fetch(`/api/items/${id}`, { method: 'DELETE' });
+    if (error) {
+      console.error(error);
+      alert('Error updating status');
+    } else {
       fetchItems();
+    }
+  };
+
+  const handleDelete = async (id: string | number) => {
+    if (window.confirm('Are you sure you want to delete this item report?')) {
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error(error);
+        alert('Error deleting item');
+      } else {
+        fetchItems();
+      }
     }
   };
 

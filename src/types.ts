@@ -1,5 +1,5 @@
 export interface User {
-  id: number;
+  id: string | number;
   fullName: string;
   matricNumber?: string;
   email: string;
@@ -8,7 +8,7 @@ export interface User {
 }
 
 export interface Item {
-  id: number;
+  id: string | number;
   name: string;
   category: string;
   description: string;
@@ -17,7 +17,7 @@ export interface Item {
   type: 'lost' | 'found';
   image_url: string;
   status: 'pending' | 'approved' | 'rejected';
-  user_id: number;
+  user_id: string | number;
   posted_by?: string;
   contact_email?: string;
   created_at: string;
